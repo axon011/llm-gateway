@@ -83,4 +83,4 @@ def test_trace_carries_session_user_route_and_real_usage(tracer_and_exporter):
         assert a["langfuse.trace.name"] == "chat:tutor.reply"
 
     root = _attrs(by_name["chat:tutor.reply"])
-    assert json.loads(root["langfuse.observation.output"]) == "Guten Tag"
+    assert root["langfuse.observation.output"] == "Guten Tag"  # plain strings are stored unquoted
