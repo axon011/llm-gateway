@@ -1,7 +1,8 @@
 # Gateway + self-hosted Langfuse (official compose copied to deploy/langfuse/).
 # Run:  docker compose up -d        UI: http://localhost:3000   gateway: http://localhost:8080/health
 include:
-  - deploy/langfuse/docker-compose.yml
+  - path: deploy/langfuse/docker-compose.yml
+    env_file: .env   # so LANGFUSE_INIT_* from the root .env reach the included file's interpolation
 
 services:
   gateway:

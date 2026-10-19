@@ -83,3 +83,36 @@ class GeminiProvider:
 
     async def aclose(self) -> None:
         await self._client.aclose()
+
+
+class GroqProvider:
+    """Groq's OpenAI-compatible chat completions API. Usage comes from `usage`."""
+
+    name = "groq"
+    _url = "https://api.groq.com/openai/v1/chat/completions"
+
+    def __init__(self, api_key: str, model: str, timeout_s: float, client: httpx.AsyncClient | None = None):
+        if not api_key:
+            raise ValueError("GROQ_API_KEY is empty")
+        self._key = api_key
+        self._model = model
+        self._client = client or httpx.AsyncClient(timeout=timeout_s)
+
+    async def complete(self, messages: list[Message]) -> Completion:
+        resp = await self._client.post(
+            self._url,
+            headers={"Authorization": f"Bearer {self._key}"},
+            json={"model": self._model, "messages": [m.model_dump() for m in messages]},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        usage = data.get("usage", {})
+        return Completion(
+            text=data["choices"][0]["message"]["content"] or "",
+            model=data.get("model", self._model),
+            input_tokens=int(usage.get("prompt_tokens", 0)),
+            output_tokens=int(usage.get("completion_tokens", 0)),
+        )
+
+    async def aclose(self) -> None:
+        await self._client.aclose()
