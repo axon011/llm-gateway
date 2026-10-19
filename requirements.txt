@@ -6,3 +6,4 @@ pydantic-settings>=2.3
 langfuse>=4,<6
 pytest>=8
 anyio>=4
+opentelemetry-sdk>=1.25  # pulled in by langfuse; pinned for the in-memory exporter used in tests
