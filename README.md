@@ -4,17 +4,21 @@ An async FastAPI service that sits between an application and its LLM providers 
 to a self-hosted Langfuse. Built to put real tracing, cost tracking, guardrails, prompt A/B tests and an
 LLM judge in front of one live app (a German tutor) instead of a demo.
 
-Status: module 0 of 8. What exists: `/health`, `POST /v1/chat` with a Gemini provider, one Langfuse
-trace per call carrying the provider's own token counts. Nothing here is estimated.
+Status: module 0 of 8 done (2026-10-19). What exists: `/health`, `POST /v1/chat` with Groq and Gemini
+providers, one Langfuse trace per call (root span + generation) carrying the provider's own token
+counts, session, user and route tags. Langfuse is provisioned headlessly from `.env`
+(`LANGFUSE_INIT_*`), so `docker compose up` yields a working project with no clicking.
+Nothing here is estimated. Cost per call is 0 until module 2 adds the pricing table.
 
 ## Run
 
 ```bash
-cp .env.example .env            # add GEMINI_API_KEY
+cp .env.example .env            # add GROQ_API_KEY (or GEMINI_API_KEY + LLM_PROVIDER=gemini)
+# generate LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY (any pk-lf-... / sk-lf-... strings) and put the
+# same values in LANGFUSE_INIT_PROJECT_PUBLIC_KEY / _SECRET_KEY plus an INIT user email + password:
+# Langfuse creates org, project, keys and login on first start.
 docker compose up -d            # Langfuse (web, worker, postgres, clickhouse, redis, minio) + gateway
-# http://localhost:3000 -> create org, project, Settings -> API Keys -> put both keys in .env
-docker compose up -d gateway    # restart the gateway with the keys
-curl -s localhost:8080/health
+curl -s localhost:8080/health   # {"status":"ok","provider":"groq","tracing":true}
 curl -s localhost:8080/v1/chat -H 'content-type: application/json' \
   -d '{"messages":[{"role":"user","content":"Korrigiere: Ich habe gestern ins Kino gegangen."}],"session_id":"demo","user_id":"u-demo","route":"tutor.correct"}'
 ```
