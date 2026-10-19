@@ -37,3 +37,24 @@ async def test_gemini_uses_provider_usage_not_estimates():
 def test_gemini_refuses_empty_key():
     with pytest.raises(ValueError):
         GeminiProvider("", "m", 5.0)
+
+
+@pytest.mark.anyio
+async def test_groq_uses_provider_usage():
+    from app.providers import GroqProvider
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers["authorization"] == "Bearer k"
+        return httpx.Response(
+            200,
+            json={
+                "model": "llama-3.3-70b-versatile",
+                "choices": [{"message": {"role": "assistant", "content": "Guten Tag"}}],
+                "usage": {"prompt_tokens": 21, "completion_tokens": 4, "total_tokens": 25},
+            },
+        )
+
+    p = GroqProvider("k", "llama-3.3-70b-versatile", 5.0, client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    c = await p.complete([Message(role="user", content="Hi")])
+    assert c.text == "Guten Tag"
+    assert (c.input_tokens, c.output_tokens) == (21, 4)

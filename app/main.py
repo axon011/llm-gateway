@@ -12,7 +12,7 @@ import httpx
 from fastapi import FastAPI, HTTPException
 
 from .config import settings
-from .providers import FakeProvider, GeminiProvider, Provider
+from .providers import FakeProvider, GeminiProvider, GroqProvider, Provider
 from .schemas import ChatRequest, ChatResponse, Usage
 from .tracing import LangfuseTracer, NoopTracer, Tracer
 
@@ -22,6 +22,8 @@ def build_provider() -> Provider:
         return FakeProvider()
     if settings.llm_provider == "gemini":
         return GeminiProvider(settings.gemini_api_key, settings.gemini_model, settings.provider_timeout_s)
+    if settings.llm_provider == "groq":
+        return GroqProvider(settings.groq_api_key, settings.groq_model, settings.provider_timeout_s)
     raise ValueError(f"unknown LLM_PROVIDER {settings.llm_provider!r}")
 
 
