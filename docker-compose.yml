@@ -1,0 +1,15 @@
+# Gateway + self-hosted Langfuse (official compose copied to deploy/langfuse/).
+# Run:  docker compose up -d        UI: http://localhost:3000   gateway: http://localhost:8080/health
+include:
+  - deploy/langfuse/docker-compose.yml
+
+services:
+  gateway:
+    build: .
+    env_file: .env
+    environment:
+      LANGFUSE_HOST: http://langfuse-web:3000
+    ports:
+      - "8080:8080"
+    depends_on:
+      - langfuse-web
