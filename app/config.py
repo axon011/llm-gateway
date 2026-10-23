@@ -20,6 +20,13 @@ class Settings(BaseSettings):
     langfuse_secret_key: str = ""
     langfuse_host: str = "http://localhost:3000"
 
+    # usage ledger (SQLite). ":memory:" for tests.
+    usage_db_path: str = "data/usage.sqlite"
+
+    # When set, every /v1 call needs `Authorization: Bearer <key>`. Required once the gateway is
+    # reachable from outside localhost (the deployed tutor calls it over the internet).
+    gateway_api_key: str = ""
+
     @property
     def tracing_enabled(self) -> bool:
         return bool(self.langfuse_public_key and self.langfuse_secret_key)

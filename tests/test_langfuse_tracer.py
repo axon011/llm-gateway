@@ -61,7 +61,7 @@ def test_trace_carries_session_user_route_and_real_usage(tracer_and_exporter):
     )
     with tracer.chat(req) as t:
         assert isinstance(t.trace_id, str) and len(t.trace_id) == 32
-        t.record("fake", Completion(text="Guten Tag", model="fake-1", input_tokens=7, output_tokens=3))
+        t.record("fake", Completion(text="Guten Tag", model="fake-1", input_tokens=7, output_tokens=3), 0.000013)
     tracer.flush()
 
     spans = exporter.get_finished_spans()
@@ -73,6 +73,7 @@ def test_trace_carries_session_user_route_and_real_usage(tracer_and_exporter):
     assert gen["langfuse.observation.model.name"] == "fake-1"
     usage = json.loads(gen["langfuse.observation.usage_details"])
     assert usage == {"input": 7, "output": 3}
+    assert json.loads(gen["langfuse.observation.cost_details"]) == {"total": 0.000013}
 
     for s in spans:  # propagate_attributes puts trace attrs on every span
         a = _attrs(s)

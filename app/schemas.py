@@ -8,7 +8,17 @@ class Message(BaseModel):
     content: str = Field(min_length=1)
 
 
-class ChatRequest(BaseModel):
+class GenerationOptions(BaseModel):
+    """Per-request sampling. Unset fields keep the provider's defaults."""
+
+    model: str | None = Field(default=None, description="Overrides the configured model for this call")
+    temperature: float | None = Field(default=None, ge=0, le=2)
+    reasoning_effort: Literal["low", "medium", "high"] | None = Field(
+        default=None, description="Groq gpt-oss only; ignored by other providers"
+    )
+
+
+class ChatRequest(GenerationOptions):
     messages: list[Message] = Field(min_length=1)
     session_id: str | None = Field(default=None, description="Groups turns of one conversation in Langfuse")
     user_id: str | None = Field(default=None, description="Hashed learner id; never a raw email")
@@ -18,6 +28,7 @@ class ChatRequest(BaseModel):
 class Usage(BaseModel):
     input_tokens: int
     output_tokens: int
+    cost_usd: float | None = Field(description="Tokens x dated list price; null if the model has no price entry")
 
 
 class ChatResponse(BaseModel):

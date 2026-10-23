@@ -21,7 +21,7 @@ from .schemas import ChatRequest
 class ChatTrace(Protocol):
     trace_id: str | None
 
-    def record(self, provider_name: str, completion: Completion) -> None: ...
+    def record(self, provider_name: str, completion: Completion, cost_usd: float | None = None) -> None: ...
 
 
 class Tracer(Protocol):
@@ -34,7 +34,7 @@ class Tracer(Protocol):
 class _NoopChatTrace:
     trace_id = None
 
-    def record(self, provider_name: str, completion: Completion) -> None:
+    def record(self, provider_name: str, completion: Completion, cost_usd: float | None = None) -> None:
         return None
 
 
@@ -90,15 +90,19 @@ class _LangfuseChatTrace:
         self._req = req
         self.trace_id = lf.get_current_trace_id()
 
-    def record(self, provider_name: str, completion: Completion) -> None:
+    def record(self, provider_name: str, completion: Completion, cost_usd: float | None = None) -> None:
         with self._lf.start_as_current_observation(
             as_type="generation",
             name=f"{provider_name}.generate",
             model=completion.model,
             input=[m.model_dump() for m in self._req.messages],
         ) as gen:
-            gen.update(
-                output=completion.text,
-                usage_details={"input": completion.input_tokens, "output": completion.output_tokens},
-            )
+            update: dict = {
+                "output": completion.text,
+                "usage_details": {"input": completion.input_tokens, "output": completion.output_tokens},
+            }
+            if cost_usd is not None:
+                # Our dated price, not Langfuse's built-in table: one source of truth for cost.
+                update["cost_details"] = {"total": cost_usd}
+            gen.update(**update)
         self._span.update(output=completion.text)
