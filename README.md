@@ -8,7 +8,23 @@ Status: module 0 of 8 done (2026-10-19). What exists: `/health`, `POST /v1/chat`
 providers, one Langfuse trace per call (root span + generation) carrying the provider's own token
 counts, session, user and route tags. Langfuse is provisioned headlessly from `.env`
 (`LANGFUSE_INIT_*`), so `docker compose up` yields a working project with no clicking.
-Nothing here is estimated. Cost per call is 0 until module 2 adds the pricing table.
+Nothing here is estimated.
+
+Module 2 (cost, 2026-10-22): every call is priced as provider-reported tokens x a dated list price
+(`app/pricing.py`, source URL per entry; an unpriced model gets `null`, never a guess). The cost goes
+into the Langfuse generation (`cost_details`), the response's `usage.cost_usd`, and a SQLite ledger
+(`data/usage.sqlite`). On Groq's free tier the real bill is 0; the number is what the same traffic
+costs on the paid tier.
+
+| Endpoint | What it does |
+|---|---|
+| `POST /v1/chat` | One completion, JSON. `model`, `temperature`, `reasoning_effort` per request |
+| `POST /v1/chat/stream` | SSE: `delta` events, then one `done` with usage + cost (or `error`) |
+| `GET /v1/usage?days=7` | Calls, tokens, cost, cost per call and per session, by day/route/model |
+
+Set `GATEWAY_API_KEY` before exposing it beyond localhost: every `/v1` call then needs
+`Authorization: Bearer <key>` (`/health` stays open). The German tutor uses it with
+`LLM_PROVIDER=gateway` and `GATEWAY_URL` (its `lib/llm/gateway.ts`).
 
 ## Run
 
