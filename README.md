@@ -44,7 +44,7 @@ The response includes `trace_id`; open it in the Langfuse UI.
 Local, no Docker:
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 uvicorn app.main:app --reload --port 8080
 pytest -q                        # fake provider, tracing off, no network
 ```
@@ -54,6 +54,10 @@ pytest -q                        # fake provider, tracing off, no network
 - Token counts and cost come only from the provider's usage fields. No `len(prompt) // 4`.
 - With no Langfuse keys the gateway runs with a no-op tracer and returns `trace_id: null`, never a fake id.
 - `user_id` is a hash the caller computes. Raw emails never reach the gateway.
+- Every token is paid for, so the request itself is bounded: at most 200 messages of 32,000 characters
+  each (422 beyond that), and a per-request `model` must be in `ALLOWED_MODELS` (400 otherwise).
+- The bearer key is compared in constant time (`hmac.compare_digest`).
+- The image runs as an unprivileged user and carries no test dependencies (`requirements-dev.txt`).
 
 ## Roadmap
 

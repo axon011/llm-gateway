@@ -97,3 +97,29 @@ def test_chat_rejects_empty_messages(client):
 def test_chat_rejects_unknown_role(client):
     r = client.post("/v1/chat", json={"messages": [{"role": "tool", "content": "x"}]})
     assert r.status_code == 422
+
+
+def test_wrong_key_of_any_length_is_rejected(client, monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "gateway_api_key", "secret")
+    body = {"messages": [{"role": "user", "content": "x"}]}
+    for auth in ("Bearer secre", "Bearer secretX", "secret", "Bearer "):
+        assert client.post("/v1/chat", json=body, headers={"authorization": auth}).status_code == 401
+
+
+def test_model_outside_allowlist_is_refused(client):
+    body = {"messages": [{"role": "user", "content": "x"}], "model": "some/expensive-model"}
+    assert client.post("/v1/chat", json=body).status_code == 400
+    assert client.post("/v1/chat/stream", json=body).status_code == 400
+    body["model"] = "openai/gpt-oss-120b"  # what the tutor sends
+    assert client.post("/v1/chat", json=body).status_code == 200
+
+
+def test_oversized_requests_are_refused(client):
+    from app.schemas import MAX_MESSAGE_CHARS, MAX_MESSAGES
+
+    big = {"messages": [{"role": "user", "content": "x" * (MAX_MESSAGE_CHARS + 1)}]}
+    assert client.post("/v1/chat", json=big).status_code == 422
+    many = {"messages": [{"role": "user", "content": "x"}] * (MAX_MESSAGES + 1)}
+    assert client.post("/v1/chat", json=many).status_code == 422
