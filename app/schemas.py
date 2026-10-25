@@ -2,10 +2,15 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+# Request size caps. Every token is paid for, so an unbounded body is a cost hole once the
+# gateway is on the internet. Generous for a tutor chat (long system prompt + history).
+MAX_MESSAGE_CHARS = 32_000
+MAX_MESSAGES = 200
+
 
 class Message(BaseModel):
     role: Literal["system", "user", "assistant"]
-    content: str = Field(min_length=1)
+    content: str = Field(min_length=1, max_length=MAX_MESSAGE_CHARS)
 
 
 class GenerationOptions(BaseModel):
@@ -19,7 +24,7 @@ class GenerationOptions(BaseModel):
 
 
 class ChatRequest(GenerationOptions):
-    messages: list[Message] = Field(min_length=1)
+    messages: list[Message] = Field(min_length=1, max_length=MAX_MESSAGES)
     session_id: str | None = Field(default=None, description="Groups turns of one conversation in Langfuse")
     user_id: str | None = Field(default=None, description="Hashed learner id; never a raw email")
     route: str = Field(default="default", description="Caller-defined label, e.g. tutor.reply, tutor.correct")

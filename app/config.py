@@ -27,9 +27,21 @@ class Settings(BaseSettings):
     # reachable from outside localhost (the deployed tutor calls it over the internet).
     gateway_api_key: str = ""
 
+    # Models a caller may pick per request (comma-separated). The configured default models are
+    # always allowed. Without this, anyone holding the key could route traffic to the priciest
+    # model the provider offers.
+    allowed_models: str = "openai/gpt-oss-20b,openai/gpt-oss-120b,gemini-2.5-flash"
+
     @property
     def tracing_enabled(self) -> bool:
         return bool(self.langfuse_public_key and self.langfuse_secret_key)
+
+    def model_allowed(self, model: str | None) -> bool:
+        if model is None:
+            return True
+        allowed = {m.strip() for m in self.allowed_models.split(",") if m.strip()}
+        allowed |= {self.groq_model, self.gemini_model}
+        return model in allowed
 
 
 settings = Settings()

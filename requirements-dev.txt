@@ -1,0 +1,4 @@
+-r requirements.txt
+pytest>=8
+anyio>=4
+opentelemetry-sdk>=1.25  # pulled in by langfuse; pinned for the in-memory exporter used in tests

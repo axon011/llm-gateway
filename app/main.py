@@ -7,6 +7,7 @@ and in the SQLite usage ledger. Guardrails, A/B variants and the judge land in l
 
 from __future__ import annotations
 
+import hmac
 import json
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -55,8 +56,18 @@ app = FastAPI(title="llm-gateway", version="0.2.0", lifespan=lifespan)
 
 
 def require_key(authorization: str | None = Header(default=None)) -> None:
-    if settings.gateway_api_key and authorization != f"Bearer {settings.gateway_api_key}":
+    if not settings.gateway_api_key:
+        return
+    # compare_digest takes the same time wherever the strings differ, so response timing
+    # does not leak how many leading characters of a guessed key were right.
+    expected = f"Bearer {settings.gateway_api_key}".encode()
+    if not hmac.compare_digest((authorization or "").encode(), expected):
         raise HTTPException(status_code=401, detail="missing or wrong gateway key")
+
+
+def check_model(req: ChatRequest) -> None:
+    if not settings.model_allowed(req.model):
+        raise HTTPException(status_code=400, detail=f"model {req.model!r} is not allowed on this gateway")
 
 
 async def _finish(req: ChatRequest, provider: Provider, trace, completion: Completion) -> Usage:
@@ -94,6 +105,7 @@ async def health() -> dict:
 
 @app.post("/v1/chat", response_model=ChatResponse, dependencies=[Depends(require_key)])
 async def chat(req: ChatRequest) -> ChatResponse:
+    check_model(req)
     provider: Provider = app.state.provider
     tracer: Tracer = app.state.tracer
     with tracer.chat(req) as trace:
@@ -118,6 +130,7 @@ def _sse(event: str, data: dict) -> str:
 @app.post("/v1/chat/stream", dependencies=[Depends(require_key)])
 async def chat_stream(req: ChatRequest) -> StreamingResponse:
     """SSE: `delta` events carry text chunks; one final `done` (usage, cost, trace) or `error`."""
+    check_model(req)  # before the stream opens, so a bad model is a plain 400, not an SSE error
     provider: Provider = app.state.provider
     tracer: Tracer = app.state.tracer
 
