@@ -4,11 +4,14 @@ An async FastAPI service that sits between an application and its LLM providers 
 to a self-hosted Langfuse. Built to put real tracing, cost tracking, guardrails, prompt A/B tests and an
 LLM judge in front of one live app (a German tutor) instead of a demo.
 
-Status: module 0 of 8 done (2026-10-19). What exists: `/health`, `POST /v1/chat` with Groq and Gemini
-providers, one Langfuse trace per call (root span + generation) carrying the provider's own token
-counts, session, user and route tags. Langfuse is provisioned headlessly from `.env`
-(`LANGFUSE_INIT_*`), so `docker compose up` yields a working project with no clicking.
-Nothing here is estimated.
+Status (2026-10-28): working and in use. Tracing and per-call cost are done, plus SSE streaming,
+bearer auth, request limits and a SQLite usage ledger. 21 tests, CI on every push. The live German
+tutor app calls it. Next on the roadmap: per-user budgets, guardrails, prompt A/B, LLM judge.
+
+Tracing: `/health`, `POST /v1/chat` with Groq and Gemini providers, one Langfuse trace per call
+(root span + generation) carrying the provider's own token counts, session, user and route tags.
+Langfuse is provisioned headlessly from `.env` (`LANGFUSE_INIT_*`), so `docker compose up` yields a
+working project with no clicking. Nothing here is estimated.
 
 Module 2 (cost, 2026-10-22): every call is priced as provider-reported tokens x a dated list price
 (`app/pricing.py`, source URL per entry; an unpriced model gets `null`, never a guess). The cost goes
