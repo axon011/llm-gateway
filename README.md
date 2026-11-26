@@ -29,6 +29,22 @@ Set `GATEWAY_API_KEY` before exposing it beyond localhost: every `/v1` call then
 `Authorization: Bearer <key>` (`/health` stays open). The German tutor uses it with
 `LLM_PROVIDER=gateway` and `GATEWAY_URL` (its `lib/llm/gateway.ts`).
 
+## How a call flows
+
+```mermaid
+flowchart LR
+    T[German tutor app] -->|POST /v1/chat or /v1/chat/stream, bearer key| G[llm-gateway<br/>FastAPI]
+    G -->|size limits, model allow-list| P{LLM_PROVIDER}
+    P --> Groq[Groq API]
+    P --> Gem[Gemini API]
+    Groq -->|text + provider token counts| G
+    Gem -->|text + provider token counts| G
+    G -->|tokens x dated list price| C[app/pricing.py]
+    G -->|one trace per call| L[(Langfuse, self-hosted)]
+    G -->|one row per call| S[(SQLite usage ledger)]
+    S -->|GET /v1/usage| R[cost per day, route, model]
+```
+
 ## Run
 
 ```bash
@@ -61,6 +77,18 @@ pytest -q                        # fake provider, tracing off, no network
   each (422 beyond that), and a per-request `model` must be in `ALLOWED_MODELS` (400 otherwise).
 - The bearer key is compared in constant time (`hmac.compare_digest`).
 - The image runs as an unprivileged user and carries no test dependencies (`requirements-dev.txt`).
+
+## Limitations
+
+- **One provider per process.** `LLM_PROVIDER` picks Groq or Gemini at startup. If Groq is down, calls fail with 502 or 504. Nothing falls back to Gemini.
+- **Retries are minimal.** The streaming path retries a Groq 429 once, and only when `retry-after` is 10 s or less. Plain `/v1/chat` doesn't retry at all.
+- **Gemini doesn't really stream.** The Gemini provider waits for the full answer and sends it as one `delta` event.
+- **Failed streams cost nothing in the ledger.** If the provider errors halfway through a stream, the tokens it already generated get no ledger row and no cost.
+- **A stream without a usage block is priced at $0.** If the provider never sends usage, the call is recorded with 0 tokens and a cost of 0, not `null`, so `unpriced_calls` doesn't count it.
+- **Costs are list prices, kept by hand.** `app/pricing.py` was last checked on 2026-10-22. On Groq's free tier the real bill is 0. The figure is what the same traffic would cost on the paid tier, and it goes stale when Groq changes prices.
+- **One shared key, no per-user limits yet.** Every caller uses the same bearer key. The only limits are request size and the model allow-list. Per-user budgets are on the roadmap.
+- **Single instance only.** The ledger is one SQLite file behind one connection and a lock. Two replicas would write two separate ledgers.
+- **No latency numbers yet.** I haven't measured how much time the gateway adds per call.
 
 ## Roadmap
 
